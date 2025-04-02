@@ -1,0 +1,81 @@
+diff --git a/interop/client/main.go b/interop/client/main.go
+index fcde0bf7..806abf46 100644
+--- a/interop/client/main.go
++++ b/interop/client/main.go
+@@ -28,7 +28,8 @@ var errUnsupported = errors.New("unsupported test case")
+ var tlsConf *tls.Config
+ 
+ func main() {
+-	logFile, err := os.Create("/logs/log.txt")
++	logs := os.Getenv("LOG_DIR")
++	logFile, err := os.Create(logs + "/quic-go-client.log")
+ 	if err != nil {
+ 		fmt.Printf("Could not create log file: %s\n", err.Error())
+ 		os.Exit(1)
+@@ -200,7 +201,8 @@ func downloadFile(cl http.RoundTripper, url string, use0RTT bool) error {
+ 	}
+ 	defer rsp.Body.Close()
+ 
+-	file, err := os.Create("/downloads" + req.URL.Path)
++	downloads := os.Getenv("DL_DIR")
++	file, err := os.Create(downloads + req.URL.Path)
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/interop/server/main.go b/interop/server/main.go
+index a809186d..3ed8cbad 100644
+--- a/interop/server/main.go
++++ b/interop/server/main.go
+@@ -16,7 +16,8 @@ import (
+ )
+ 
+ func main() {
+-	logFile, err := os.Create("/logs/log.txt")
++	logs := os.Getenv("LOGS")
++	logFile, err := os.Create(logs + "/quic-go-server.log")
+ 	if err != nil {
+ 		fmt.Printf("Could not create log file: %s\n", err.Error())
+ 		os.Exit(1)
+@@ -39,7 +40,8 @@ func main() {
+ 		Allow0RTT: testcase == "zerortt",
+ 		Tracer:    utils.NewQLOGConnectionTracer,
+ 	}
+-	cert, err := tls.LoadX509KeyPair("/certs/cert.pem", "/certs/priv.key")
++	certdir := os.Getenv("CERT_DIR")
++	cert, err := tls.LoadX509KeyPair(certdir+"/cert.pem", certdir+"/priv.key")
+ 	if err != nil {
+ 		fmt.Println(err)
+ 		os.Exit(1)
+@@ -72,10 +74,13 @@ func main() {
+ }
+ 
+ func runHTTP09Server(tlsConf *tls.Config, quicConf *quic.Config, forceRetry bool) error {
+-	http.DefaultServeMux.Handle("/", http.FileServer(http.Dir("/www")))
++	www := os.Getenv("WWW_DIR")
++	ip := os.Getenv("IP")
++	port := os.Getenv("PORT")
++	http.DefaultServeMux.Handle("/", http.FileServer(http.Dir(www)))
+ 	server := http09.Server{}
+ 
+-	udpAddr, err := net.ResolveUDPAddr("udp", ":443")
++	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", ip, port))
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -95,11 +100,14 @@ func runHTTP09Server(tlsConf *tls.Config, quicConf *quic.Config, forceRetry bool
+ }
+ 
+ func runHTTP3Server(tlsConf *tls.Config, quicConf *quic.Config) error {
++	www := os.Getenv("WWW_DIR")
++	ip := os.Getenv("IP")
++	port := os.Getenv("PORT")
+ 	server := http3.Server{
+-		Addr:       ":443",
++		Addr:       fmt.Sprintf("%s:%s", ip, port),
+ 		TLSConfig:  tlsConf,
+ 		QUICConfig: quicConf,
+ 	}
+-	http.DefaultServeMux.Handle("/", http.FileServer(http.Dir("/www")))
++	http.DefaultServeMux.Handle("/", http.FileServer(http.Dir(www)))
+ 	return server.ListenAndServe()
+ }
